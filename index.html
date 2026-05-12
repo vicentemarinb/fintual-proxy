@@ -513,13 +513,13 @@ function renderFunds(goals) {
   goals.forEach((g, i) => {
     const a = g.attributes;
     const name = a.name || `Meta ${i+1}`;
-    const val = a.current_market_value || 0;
-    const dep = a.deposited_amount || 0;
-    const gain = val - dep;
+    const val = a.nav || a.current_market_value || 0;
+    const dep = a.deposited || a.deposited_amount || 0;
+    const gain = a.profit || (val - dep);
     const ret = dep > 0 ? ((gain / dep) * 100) : 0;
     totalVal += val; totalDep += dep;
 
-    const tag = a.goal_type_name || a.type || '';
+    const tag = a.translated_goal_type || a.goal_type_name || a.type || '';
     const emoji = emojis[i % emojis.length];
     const gc = gradients[i % gradients.length];
 
@@ -629,9 +629,9 @@ function buildSyntheticChart(goals) {
 
 // ─── PORTFOLIO SUMMARY (side panel) ─────────────────────────────────────────
 function buildPortfolioSummary(goals) {
-  const totalVal = goals.reduce((s, g) => s + (g.attributes.current_market_value || 0), 0);
-  const totalDep = goals.reduce((s, g) => s + (g.attributes.deposited_amount || 0), 0);
-  const totalGain = totalVal - totalDep;
+  const totalVal = goals.reduce((s, g) => s + (g.attributes.nav || g.attributes.current_market_value || 0), 0);
+  const totalDep = goals.reduce((s, g) => s + (g.attributes.deposited || g.attributes.deposited_amount || 0), 0);
+  const totalGain = goals.reduce((s, g) => s + (g.attributes.profit || 0), 0);
   const totalRet = totalDep > 0 ? (totalGain / totalDep * 100) : 0;
 
   document.getElementById('portVal').textContent = clp(totalVal);
