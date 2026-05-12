@@ -4,7 +4,7 @@ export default async function handler(req) {
   const CORS = {
     "Access-Control-Allow-Origin": "*",
     "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type",
+    "Access-Control-Allow-Headers": "Content-Type, X-Fintual-Cookie",
   };
 
   if (req.method === "OPTIONS") {
@@ -12,21 +12,27 @@ export default async function handler(req) {
   }
 
   const url = new URL(req.url);
-  
   const parts = url.pathname.split("/api/");
   const fintualPath = parts.length > 1 ? "/" + parts[parts.length - 1] : "/";
-  
-  // Quitar el param "path" que agrega el rewrite de Vercel
   const cleanParams = new URLSearchParams(url.search);
   cleanParams.delete("path");
   const qs = cleanParams.toString();
   const fintualUrl = `https://fintual.cl/api${fintualPath}${qs ? "?" + qs : ""}`;
 
+  // Tomar la cookie del header personalizado y reenviarla como Cookie real
+  const cookieHeader = req.headers.get("x-fintual-cookie") || "";
+
   try {
     const body = req.method !== "GET" ? await req.text() : undefined;
+    const headers = {
+      "Content-Type": "application/json",
+      "Accept": "application/json",
+    };
+    if (cookieHeader) headers["Cookie"] = cookieHeader;
+
     const res = await fetch(fintualUrl, {
       method: req.method,
-      headers: { "Content-Type": "application/json", "Accept": "application/json" },
+      headers,
       body,
       redirect: "follow",
     });
