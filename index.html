@@ -821,13 +821,21 @@ function toggleTheme() {
 // ─── INIT ─────────────────────────────────────────────────────────────────────
 window.addEventListener('DOMContentLoaded', () => {
   buildBookmarklet();
-  // Si viene de sync o ya tiene datos, cargar directo
+
+  // Escuchar datos enviados desde fintual.cl via postMessage
+  window.addEventListener('message', function(event) {
+    if (event.origin !== 'https://fintual.cl') return;
+    if (event.data?.type === 'fintual_data') {
+      const data = event.data;
+      localStorage.setItem('rutaboard_data', JSON.stringify({...data, ts: Date.now()}));
+      loadFromCache(data);
+    }
+  });
+
+  // Si ya tiene datos guardados, cargar directo
   const raw = localStorage.getItem('rutaboard_data');
   if (raw) {
     try { loadFromCache(JSON.parse(raw)); return; } catch(e) {}
-  }
-  if (window.location.search.includes('synced=1')) {
-    setTimeout(checkForData, 300);
   }
 });
 </script>
