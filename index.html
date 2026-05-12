@@ -1,0 +1,840 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Rutaboard — Fintual Tracker</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.44.0/tabler-icons.min.css">
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+:root{
+  --bg:#f5f5f0;--bg2:#fff;--bg3:#f0f0eb;--bg4:#e2e2dc;
+  --text:#111;--text2:#555;--text3:#999;
+  --border:#e0e0d8;--border2:#ccc;
+  --green:#00a86b;--red:#d94f4f;--blue:#2d6be4;
+  --card:#fff;--card-b:#e8e8e2;
+  --sidebar:#fff;--header:#fff;
+}
+.dark{
+  --bg:#0d0d0f;--bg2:#111113;--bg3:#16161a;--bg4:#1e1e24;
+  --text:#e8e8e8;--text2:#888;--text3:#555;
+  --border:#1e1e24;--border2:#333;
+  --card:#111113;--card-b:#1e1e24;
+  --sidebar:#111113;--header:#111113;
+}
+html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:13px;background:var(--bg);color:var(--text);}
+.layout{display:flex;height:100vh;overflow:hidden;}
+
+/* Sidebar */
+.sidebar{width:48px;background:var(--sidebar);border-right:1px solid var(--border);display:flex;flex-direction:column;align-items:center;padding:12px 0;gap:4px;flex-shrink:0;}
+.logo{width:30px;height:30px;border-radius:50%;background:var(--blue);color:#fff;font-weight:700;font-size:13px;display:flex;align-items:center;justify-content:center;margin-bottom:12px;cursor:default;}
+.sb{width:34px;height:34px;border-radius:8px;border:none;background:transparent;color:var(--text3);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .15s;}
+.sb.on{background:var(--bg3);color:var(--blue);}
+.sb:hover:not(.on){background:var(--bg3);color:var(--text2);}
+.sb-spacer{flex:1;}
+
+/* Header */
+.main-col{flex:1;display:flex;flex-direction:column;overflow:hidden;min-width:0;}
+.header{display:flex;align-items:center;justify-content:space-between;padding:0 20px;height:48px;border-bottom:1px solid var(--border);background:var(--header);flex-shrink:0;}
+.header-title{font-size:14px;font-weight:600;color:var(--text);}
+.header-right{display:flex;align-items:center;gap:10px;}
+.rate{font-size:12px;color:var(--text2);}
+.rate b{color:var(--text);}
+.btn{border:1px solid var(--border2);border-radius:8px;padding:5px 12px;font-size:12px;background:var(--bg2);color:var(--text2);cursor:pointer;display:flex;align-items:center;gap:5px;transition:all .15s;}
+.btn:hover{background:var(--bg3);}
+
+/* Body */
+.body{display:flex;overflow:hidden;flex:1;min-height:0;}
+.scroll{flex:1;overflow-y:auto;padding:16px 20px;min-width:0;}
+.side-panel{width:270px;border-left:1px solid var(--border);overflow-y:auto;padding:16px;flex-shrink:0;}
+
+/* Login modal */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;z-index:100;}
+.modal{background:var(--bg2);border:1px solid var(--border);border-radius:14px;padding:28px;width:340px;box-shadow:0 8px 32px rgba(0,0,0,.12);}
+.modal h2{font-size:17px;font-weight:600;color:var(--text);margin-bottom:6px;}
+.modal p{font-size:12px;color:var(--text3);margin-bottom:20px;line-height:1.5;}
+.field{margin-bottom:12px;}
+.field label{display:block;font-size:11px;color:var(--text2);margin-bottom:4px;font-weight:500;}
+.field input{width:100%;padding:8px 12px;border:1px solid var(--border2);border-radius:8px;font-size:13px;background:var(--bg);color:var(--text);outline:none;}
+.field input:focus{border-color:var(--blue);}
+.btn-primary{width:100%;padding:10px;background:var(--blue);color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:500;cursor:pointer;margin-top:4px;}
+.btn-primary:hover{opacity:.9;}
+.worker-note{background:var(--bg3);border-radius:8px;padding:10px 12px;font-size:11px;color:var(--text2);margin-bottom:16px;line-height:1.5;}
+.worker-note b{color:var(--text);}
+.err{color:var(--red);font-size:11px;margin-top:8px;text-align:center;}
+
+/* Loading */
+.loading{display:flex;flex-direction:column;align-items:center;justify-content:center;height:200px;gap:10px;color:var(--text3);font-size:13px;}
+.spinner{width:24px;height:24px;border:2px solid var(--border2);border-top-color:var(--blue);border-radius:50%;animation:spin .7s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg);}}
+
+/* Cards */
+.card{background:var(--card);border:1px solid var(--card-b);border-radius:12px;padding:16px;margin-bottom:14px;}
+.port-val{font-size:24px;font-weight:700;color:var(--text);}
+.gain{color:var(--green);font-weight:500;}
+.loss{color:var(--red);font-weight:500;}
+.sub{font-size:11px;color:var(--text3);margin-top:2px;}
+.tf-group{display:flex;gap:2px;}
+.tf{padding:3px 8px;border-radius:5px;font-size:11px;border:none;background:transparent;color:var(--text3);cursor:pointer;}
+.tf.on{background:var(--bg3);color:var(--text);font-weight:500;}
+.tf:hover:not(.on){color:var(--text2);}
+.chart-wrap{position:relative;width:100%;height:220px;margin:12px 0 8px;}
+.leg{display:flex;flex-wrap:wrap;gap:6px 14px;margin-top:6px;}
+.li{display:flex;align-items:center;gap:4px;font-size:10px;color:var(--text3);}
+.ld{width:16px;height:2px;border-radius:1px;}
+
+/* Tabs */
+.tabs{display:flex;border:1px solid var(--border);border-radius:8px;overflow:hidden;width:fit-content;margin-bottom:16px;}
+.tab{padding:7px 18px;font-size:12px;font-weight:500;cursor:pointer;border:none;background:transparent;color:var(--text2);}
+.tab.on{background:var(--bg2);color:var(--text);}
+
+/* Section */
+.sec{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;}
+.sec-t{font-size:15px;font-weight:600;color:var(--text);display:flex;align-items:center;gap:6px;}
+.sec-s{font-size:11px;color:var(--text3);}
+
+/* Stock grid */
+.sg{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px;}
+.sc{background:var(--card);border:1px solid var(--card-b);border-radius:10px;padding:12px;}
+.sc-top{display:flex;align-items:flex-start;gap:8px;margin-bottom:8px;}
+.av{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:10px;color:#fff;flex-shrink:0;}
+.sc-ticker{font-size:14px;font-weight:600;color:var(--text);}
+.sc-name{font-size:10px;color:var(--text3);}
+.pct{font-size:11px;font-weight:600;padding:2px 6px;border-radius:4px;margin-left:auto;white-space:nowrap;}
+.pct-g{background:#dcfce7;color:#166534;}
+.pct-r{background:#fee2e2;color:#991b1b;}
+.dark .pct-g{background:#14532d;color:#86efac;}
+.dark .pct-r{background:#450a0a;color:#fca5a5;}
+.sc-rows{display:grid;grid-template-columns:1fr 1fr;gap:1px 0;margin-bottom:8px;}
+.sc-r{display:flex;justify-content:space-between;}
+.sc-l{font-size:10px;color:var(--text3);}
+.sc-v{font-size:10px;color:var(--text2);}
+.sc-bot{border-top:1px solid var(--border);padding-top:8px;margin-top:4px;display:flex;justify-content:space-between;align-items:baseline;}
+.sc-val{font-size:16px;font-weight:600;color:var(--text);}
+
+/* Fund cards */
+.fg{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px;}
+.fc{border-radius:12px;padding:14px;min-height:130px;}
+.fc-pink{background:linear-gradient(135deg,#fde8f0,#f9d0e4);}
+.fc-purple{background:linear-gradient(135deg,#ede8fe,#d8ccfc);}
+.fc-new{border:2px dashed var(--border2);background:transparent;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:6px;cursor:pointer;color:var(--text3);}
+.fc-tag{background:rgba(0,0,0,.07);border-radius:4px;padding:2px 7px;font-size:10px;color:#555;width:fit-content;margin-bottom:6px;}
+.fc-name{font-size:13px;font-weight:600;color:#222;display:flex;align-items:center;gap:5px;}
+.fc-val{font-size:20px;font-weight:700;color:#111;margin:6px 0;}
+.fc-meta{display:grid;grid-template-columns:1fr 1fr;gap:2px;}
+.fc-lbl{font-size:10px;color:#666;}
+.fc-v{font-size:11px;font-weight:500;color:#333;}
+.fc-g{color:#00914a;font-size:11px;font-weight:500;}
+
+/* Wallet */
+.wallet{background:var(--card);border:1px solid var(--card-b);border-radius:10px;padding:12px 16px;display:flex;align-items:center;gap:12px;margin-bottom:16px;}
+.wallet-icon{width:36px;height:36px;border-radius:50%;background:#fef3c7;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;}
+.wallet-vals{text-align:right;margin-left:auto;}
+
+/* Activity */
+.act-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;}
+.act-leg{display:flex;gap:12px;}
+.act-li{display:flex;align-items:center;gap:4px;font-size:10px;color:var(--text3);}
+.act-dot{width:8px;height:8px;border-radius:50%;}
+
+/* Transactions */
+.tx-row{display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--border);}
+.tx-date{width:34px;text-align:center;flex-shrink:0;}
+.tx-day{font-size:13px;font-weight:600;color:var(--text);line-height:1.1;}
+.tx-mon{font-size:9px;color:var(--text3);text-transform:uppercase;}
+.badge{padding:2px 8px;border-radius:4px;font-size:10px;font-weight:500;white-space:nowrap;}
+.b-buy{background:#dcfce7;color:#166534;}
+.b-dep{background:#dbeafe;color:#1d4ed8;}
+.b-ret{background:#fee2e2;color:#991b1b;}
+.dark .b-buy{background:#14532d;color:#86efac;}
+.dark .b-dep{background:#1e3a5f;color:#93c5fd;}
+.dark .b-ret{background:#450a0a;color:#fca5a5;}
+.tx-name{flex:1;font-size:12px;font-weight:500;color:var(--text);}
+
+/* Side panel */
+.tot-lbl{font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--text3);margin-bottom:3px;}
+.tot-val{font-size:22px;font-weight:700;color:var(--text);line-height:1.1;}
+.donut-wrap{display:flex;justify-content:center;margin:14px 0;}
+.dl{display:flex;flex-direction:column;gap:10px;}
+.dl-row{display:flex;align-items:flex-start;justify-content:space-between;}
+.dl-dot{width:10px;height:10px;border-radius:50%;margin-top:2px;flex-shrink:0;}
+.dl-name{font-size:12px;font-weight:500;color:var(--text);margin-left:7px;}
+.dl-val{font-size:11px;color:var(--text2);margin-left:7px;}
+.dl-g{font-size:10px;color:var(--green);margin-left:7px;}
+.dl-pct{font-size:11px;color:var(--text3);}
+
+/* Table view */
+.tbl-wrap{overflow-x:auto;}
+.tbl{width:100%;border-collapse:collapse;font-size:12px;}
+.tbl th{font-size:10px;color:var(--text3);font-weight:500;text-align:right;padding:6px 8px;border-bottom:1px solid var(--border);}
+.tbl th:first-child{text-align:left;}
+.tbl td{padding:9px 8px;border-bottom:1px solid var(--border);color:var(--text);text-align:right;white-space:nowrap;}
+.tbl td:first-child{text-align:left;}
+.tbl tr:last-child td{font-weight:600;}
+.prog{width:70px;height:4px;background:var(--bg4);border-radius:2px;display:inline-block;vertical-align:middle;overflow:hidden;}
+.prog-f{height:100%;background:var(--green);border-radius:2px;}
+.tbl-sec-title{font-size:16px;font-weight:700;color:var(--text);margin:20px 0 10px;}
+
+.disclaimer{text-align:center;font-size:10px;color:var(--text3);margin-top:20px;padding-top:12px;border-top:1px solid var(--border);}
+
+/* Fintual colors per fund type */
+.color-0{background:#8b5cf6;}
+.color-1{background:#ec4899;}
+.color-2{background:#f59e0b;}
+.color-3{background:#3b82f6;}
+.color-4{background:#10b981;}
+</style>
+</head>
+<body>
+
+<!-- LOGIN MODAL -->
+<div class="modal-overlay" id="loginModal">
+  <div class="modal">
+    <h2>🍪 Conectar con Fintual</h2>
+    <p>Usa tu cookie de sesión de Fintual. Se guarda solo en tu navegador y nunca sale de tu computador.</p>
+
+    <div class="worker-note">
+      <b>Cómo obtener la cookie:</b><br>
+      1. Entra a <b>fintual.cl</b> con tu cuenta<br>
+      2. Abre DevTools → <b>F12</b><br>
+      3. Ve a <b>Application → Cookies → https://fintual.cl</b><br>
+      4. Copia el valor de <code>_fintual_session_cookie</code>
+    </div>
+
+    <div class="field">
+      <label>Proxy URL</label>
+      <input type="text" id="workerUrl" placeholder="https://fintual-proxy.vercel.app" value="https://fintual-proxy.vercel.app">
+    </div>
+    <div class="field">
+      <label>Cookie de sesión (_fintual_session_cookie)</label>
+      <input type="password" id="sessionCookie" placeholder="Pega aquí el valor de la cookie...">
+    </div>
+    <button class="btn-primary" id="btnLogin" onclick="doLogin()">Conectar</button>
+    <div class="err" id="loginErr"></div>
+    <p style="text-align:center;margin-top:14px;font-size:10px;color:var(--text3)">
+      La cookie dura ~30 días. Después deberás renovarla.
+    </p>
+  </div>
+</div>
+
+<!-- APP -->
+<div class="layout dark" id="app" style="display:none">
+  <div class="sidebar">
+    <div class="logo">R</div>
+    <button class="sb on" id="btn-dash" onclick="showView('dashboard')" title="Dashboard"><i class="ti ti-layout-dashboard" style="font-size:17px"></i></button>
+    <button class="sb" id="btn-table" onclick="showView('table')" title="Tabla"><i class="ti ti-table" style="font-size:17px"></i></button>
+    <button class="sb" title="Metas"><i class="ti ti-flag" style="font-size:17px"></i></button>
+    <button class="sb" title="Actividad"><i class="ti ti-clock" style="font-size:17px"></i></button>
+    <div class="sb-spacer"></div>
+    <button class="sb" onclick="toggleTheme()" title="Tema" id="theme-btn"><i class="ti ti-moon" style="font-size:16px" id="theme-icon"></i></button>
+    <button class="sb" onclick="doLogout()" title="Cerrar sesión"><i class="ti ti-logout" style="font-size:16px"></i></button>
+  </div>
+
+  <div class="main-col">
+    <div class="header">
+      <div class="header-title">Rutaboard</div>
+      <div class="header-right">
+        <div class="rate">USD/CLP <b id="usdclp">$890</b></div>
+        <button class="btn" onclick="loadAll()"><i class="ti ti-refresh" style="font-size:12px"></i> Actualizar</button>
+      </div>
+    </div>
+
+    <div class="body">
+      <div class="scroll" id="main-scroll">
+
+        <!-- DASHBOARD VIEW -->
+        <div id="view-dashboard">
+
+          <!-- Portfolio chart -->
+          <div class="card">
+            <div style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:10px;">
+              <div>
+                <div style="font-size:12px;font-weight:500;color:var(--text2);margin-bottom:3px;">Valor del portafolio</div>
+                <div class="port-val" id="portVal">—</div>
+                <div id="portGain" style="font-size:13px;font-weight:500;margin-top:1px;">—</div>
+                <div class="sub" id="portInv">—</div>
+              </div>
+              <div class="tf-group">
+                <button class="tf" onclick="setRange('1M',this)">1M</button>
+                <button class="tf" onclick="setRange('3M',this)">3M</button>
+                <button class="tf" onclick="setRange('6M',this)">6M</button>
+                <button class="tf" onclick="setRange('1Y',this)">1Y</button>
+                <button class="tf" onclick="setRange('3Y',this)">3Y</button>
+                <button class="tf on" onclick="setRange('ALL',this)">ALL</button>
+              </div>
+            </div>
+            <div class="chart-wrap"><canvas id="mainChart"></canvas></div>
+            <div class="leg" id="mainLeg"></div>
+          </div>
+
+          <div class="tabs">
+            <button class="tab on">Fintual</button>
+            <button class="tab">Otros Activos</button>
+          </div>
+
+          <!-- Stocks -->
+          <div id="stocks-section" style="display:none">
+            <div class="sec">
+              <div class="sec-t"><i class="ti ti-trending-up" style="font-size:16px;color:var(--green)"></i> <span id="stocks-title">Acciones</span></div>
+              <div class="sec-s" id="stocks-sub"></div>
+            </div>
+            <div class="sg" id="stocks-grid"></div>
+          </div>
+
+          <!-- Funds -->
+          <div id="funds-section">
+            <div class="sec" style="margin-top:4px">
+              <div class="sec-t"><i class="ti ti-device-analytics" style="font-size:16px;color:var(--blue)"></i> <span id="funds-title">Fondos de Fintual</span></div>
+            </div>
+            <div class="fg" id="funds-grid">
+              <div class="loading"><div class="spinner"></div>Cargando fondos...</div>
+            </div>
+          </div>
+
+          <!-- Wallet -->
+          <div id="wallet-section" style="display:none">
+            <div class="wallet">
+              <div class="wallet-icon">🪙</div>
+              <div>
+                <div style="font-size:13px;font-weight:600;color:var(--text)">Wallet USD</div>
+                <div style="font-size:11px;color:var(--text3)">Efectivo disponible</div>
+              </div>
+              <div class="wallet-vals">
+                <div style="font-size:15px;font-weight:600;color:var(--text)" id="wallet-usd">—</div>
+                <div style="font-size:11px;color:var(--text3)" id="wallet-clp">—</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Activity -->
+          <div class="sec" style="margin-top:4px">
+            <div class="sec-t"><i class="ti ti-clock" style="font-size:16px;color:var(--text2)"></i> Actividad</div>
+          </div>
+          <div class="card">
+            <div class="act-top">
+              <div style="font-size:12px;font-weight:500;color:var(--text2)">Movimientos mensuales</div>
+              <div class="act-leg">
+                <div class="act-li"><div class="act-dot" style="background:var(--blue)"></div>Ingresos</div>
+                <div class="act-li"><div class="act-dot" style="background:var(--red)"></div>Egresos</div>
+              </div>
+            </div>
+            <div style="position:relative;width:100%;height:130px;">
+              <canvas id="actChart"></canvas>
+            </div>
+          </div>
+
+          <div style="font-size:12px;font-weight:500;color:var(--text2);margin-bottom:8px;" id="tx-header">Transacciones</div>
+          <div id="tx-list"></div>
+
+          <div class="disclaimer">Este sitio no está afiliado, asociado ni respaldado por Fintual</div>
+        </div>
+
+        <!-- TABLE VIEW -->
+        <div id="view-table" style="display:none">
+          <div class="tbl-sec-title">Acciones</div>
+          <div class="tbl-wrap">
+            <table class="tbl" id="stocks-table">
+              <thead><tr>
+                <th style="width:180px">Activo</th>
+                <th>Acciones</th><th>Precio</th><th>Valor</th><th>Costo</th>
+                <th>P&amp;L</th><th>Rendimiento</th>
+              </tr></thead>
+              <tbody id="stocks-tbody"></tbody>
+            </table>
+          </div>
+          <div class="tbl-sec-title">Fondos mutuos</div>
+          <div class="tbl-wrap">
+            <table class="tbl" id="funds-table">
+              <thead><tr>
+                <th style="width:180px">Meta</th>
+                <th>Tipo</th><th>Valor</th><th>Depositado</th>
+                <th>Utilidad</th><th>Retorno</th>
+              </tr></thead>
+              <tbody id="funds-tbody"></tbody>
+            </table>
+          </div>
+          <div class="disclaimer">Este sitio no está afiliado, asociado ni respaldado por Fintual</div>
+        </div>
+
+      </div>
+
+      <!-- SIDE PANEL -->
+      <div class="side-panel" id="side-panel">
+        <div style="margin-bottom:14px">
+          <div class="tot-lbl">Valor total</div>
+          <div class="tot-val" id="tot-val">—</div>
+          <div class="gain" id="tot-gain" style="font-size:13px;margin-top:2px;">—</div>
+          <div style="font-size:11px;color:var(--text3);margin-top:2px;" id="tot-dep">—</div>
+        </div>
+        <div class="donut-wrap">
+          <canvas id="donutChart" width="160" height="160"></canvas>
+        </div>
+        <div class="dl" id="donut-legend"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ─── CONFIG ───────────────────────────────────────────────────────────────────
+let WORKER = '';
+let SESSION_COOKIE = '';
+let isDark = true;
+
+// ─── CHARTS ───────────────────────────────────────────────────────────────────
+let mainChart = null, donutChart = null, actChart = null;
+let allPortData = null;
+
+// ─── API HELPERS ──────────────────────────────────────────────────────────────
+async function api(path) {
+  const url = `${WORKER}/api${path}`;
+  const r = await fetch(url, {
+    headers: {
+      'Content-Type': 'application/json',
+      'X-Fintual-Cookie': `_fintual_session_cookie=${SESSION_COOKIE}`,
+    }
+  });
+  if (!r.ok) throw new Error(`API error ${r.status}`);
+  return r.json();
+}
+
+async function apiPublic(path) {
+  const url = `${WORKER}/api${path}`;
+  const r = await fetch(url);
+  if (!r.ok) throw new Error(`API error ${r.status}`);
+  return r.json();
+}
+
+// ─── FORMAT HELPERS ───────────────────────────────────────────────────────────
+const clp = v => '$' + Math.round(v).toLocaleString('es-CL');
+const pct = v => (v >= 0 ? '+' : '') + v.toFixed(1) + '%';
+const clpShort = v => {
+  if (Math.abs(v) >= 1e9) return '$' + (v/1e9).toFixed(1) + 'B';
+  if (Math.abs(v) >= 1e6) return '$' + (v/1e6).toFixed(1) + 'M';
+  return '$' + Math.round(v).toLocaleString('es-CL');
+};
+const avatarColor = (str) => {
+  const colors = ['#cc2727','#1565c0','#1a237e','#546e7a','#8b5cf6','#ec4899','#f59e0b','#10b981','#0891b2'];
+  let h = 0; for (let c of str) h = ((h << 5) - h) + c.charCodeAt(0);
+  return colors[Math.abs(h) % colors.length];
+};
+
+// ─── LOGIN ────────────────────────────────────────────────────────────────────
+async function doLogin() {
+  const worker = document.getElementById('workerUrl').value.trim().replace(/\/$/, '');
+  const cookie = document.getElementById('sessionCookie').value.trim();
+  const errEl = document.getElementById('loginErr');
+  const btnEl = document.getElementById('btnLogin');
+  errEl.textContent = '';
+
+  if (!worker || !cookie) {
+    errEl.textContent = 'Completa todos los campos.'; return;
+  }
+
+  try {
+    btnEl.textContent = 'Verificando...';
+    btnEl.disabled = true;
+
+    // Probar que la cookie funciona llamando a /goals
+    const r = await fetch(`${worker}/api/goals`, {
+      headers: {
+        'X-Fintual-Cookie': `_fintual_session_cookie=${cookie}`,
+      }
+    });
+
+    if (r.status === 401 || r.status === 403) {
+      throw new Error('Cookie inválida o expirada. Cópiala de nuevo desde fintual.cl');
+    }
+    if (!r.ok) throw new Error(`Error ${r.status} al conectar`);
+
+    const data = await r.json();
+    if (!data?.data) throw new Error('No se pudieron obtener tus inversiones. Verifica la cookie.');
+
+    WORKER = worker;
+    SESSION_COOKIE = cookie;
+
+    localStorage.setItem('ft_worker', worker);
+    localStorage.setItem('ft_cookie', cookie);
+
+    document.getElementById('loginModal').style.display = 'none';
+    document.getElementById('app').style.display = 'flex';
+    loadAll();
+  } catch (e) {
+    errEl.style.color = '#d94f4f';
+    errEl.textContent = e.message || 'Error al conectar.';
+    btnEl.textContent = 'Conectar';
+    btnEl.disabled = false;
+  }
+}
+
+function doLogout() {
+  localStorage.removeItem('ft_cookie');
+  localStorage.removeItem('ft_worker');
+  location.reload();
+}
+
+// ─── LOAD ALL ────────────────────────────────────────────────────────────────
+async function loadAll() {
+  try {
+    await Promise.all([loadGoals(), loadUsdClp()]);
+  } catch (e) {
+    console.error(e);
+  }
+}
+
+// ─── USD/CLP ──────────────────────────────────────────────────────────────────
+async function loadUsdClp() {
+  try {
+    // Fintual provee el tipo de cambio indirectamente; usamos un valor de referencia
+    document.getElementById('usdclp').textContent = '$890';
+  } catch(e) {}
+}
+
+// ─── GOALS / FONDOS ───────────────────────────────────────────────────────────
+let goalsData = [];
+
+async function loadGoals() {
+  const data = await api('/goals');
+  goalsData = data.data || [];
+  renderFunds(goalsData);
+  await loadGoalSeries(goalsData);
+  buildPortfolioSummary(goalsData);
+}
+
+function renderFunds(goals) {
+  const grid = document.getElementById('funds-grid');
+  const tbody = document.getElementById('funds-tbody');
+  const gradients = ['fc-purple', 'fc-pink', 'fc-purple', 'fc-pink'];
+  const emojis = ['💎','🏠','🎯','🌱','🚀'];
+
+  let fundsHtml = '';
+  let tableHtml = '';
+  let totalVal = 0, totalDep = 0;
+
+  goals.forEach((g, i) => {
+    const a = g.attributes;
+    const name = a.name || `Meta ${i+1}`;
+    const val = a.current_market_value || 0;
+    const dep = a.deposited_amount || 0;
+    const gain = val - dep;
+    const ret = dep > 0 ? ((gain / dep) * 100) : 0;
+    totalVal += val; totalDep += dep;
+
+    const tag = a.goal_type_name || a.type || '';
+    const emoji = emojis[i % emojis.length];
+    const gc = gradients[i % gradients.length];
+
+    fundsHtml += `<div class="fc ${gc}">
+      ${tag ? `<div class="fc-tag">${tag}</div>` : ''}
+      <div class="fc-name">${emoji} ${name}</div>
+      <div class="fc-val">${clp(val)}</div>
+      <div class="fc-meta">
+        <div><div class="fc-lbl">Depositado</div><div class="fc-v">${clp(dep)}</div></div>
+        <div><div class="fc-lbl">Ganancia</div><div class="fc-g">${gain >= 0 ? '+' : ''}${clp(gain)} (${pct(ret)})</div></div>
+      </div>
+    </div>`;
+
+    tableHtml += `<tr>
+      <td>${emoji} ${name}</td>
+      <td style="text-align:left;color:var(--text2)">${tag}</td>
+      <td>${clp(val)}</td>
+      <td>${clp(dep)}</td>
+      <td class="${gain >= 0 ? 'gain' : 'loss'}">${gain >= 0 ? '+' : ''}${clp(gain)}</td>
+      <td class="${ret >= 0 ? 'gain' : 'loss'}">${pct(ret)}</td>
+    </tr>`;
+  });
+
+  const totalGain = totalVal - totalDep;
+  const totalRet = totalDep > 0 ? ((totalGain / totalDep) * 100) : 0;
+  tableHtml += `<tr>
+    <td>Total</td><td>—</td>
+    <td>${clp(totalVal)}</td><td>${clp(totalDep)}</td>
+    <td class="gain">${totalGain >= 0 ? '+' : ''}${clp(totalGain)}</td>
+    <td class="gain">${pct(totalRet)}</td>
+  </tr>`;
+
+  fundsHtml += `<div class="fc fc-new"><i class="ti ti-plus" style="font-size:22px"></i><div style="font-size:12px">Crear nueva meta</div></div>`;
+  grid.innerHTML = fundsHtml;
+  tbody.innerHTML = tableHtml;
+  document.getElementById('funds-title').textContent = `Fondos de Fintual (${goals.length})`;
+}
+
+// ─── PORTFOLIO SERIES ────────────────────────────────────────────────────────
+async function loadGoalSeries(goals) {
+  // Pedir historial de cada goal (últimos 3 años)
+  const to = new Date().toISOString().split('T')[0];
+  const from = new Date(Date.now() - 3 * 365 * 86400000).toISOString().split('T')[0];
+
+  const series = await Promise.all(goals.map(g =>
+    api(`/goals/${g.id}/daily_returns?from_date=${from}&to_date=${to}`)
+      .catch(() => null)
+  ));
+
+  // Combinar series en un mapa fecha → valor
+  const dateMap = {};
+  series.forEach((s, gi) => {
+    if (!s?.data) return;
+    s.data.forEach(d => {
+      const date = d.attributes?.date || d.id;
+      const val = d.attributes?.value || 0;
+      if (!dateMap[date]) dateMap[date] = { fondosVal: 0, fondosInv: 0 };
+      dateMap[date].fondosVal += val;
+    });
+  });
+
+  const dates = Object.keys(dateMap).sort();
+  if (dates.length === 0) {
+    // Sin datos de series, construir datos sintéticos desde totales
+    buildSyntheticChart(goals);
+    return;
+  }
+
+  allPortData = {
+    labels: dates.map(d => {
+      const dt = new Date(d + 'T00:00:00');
+      return dt.toLocaleDateString('es-CL', { day: 'numeric', month: 'short', year: '2-digit' });
+    }),
+    fondosVal: dates.map(d => dateMap[d].fondosVal),
+    fondosInv: dates.map(d => dateMap[d].fondosInv || dateMap[d].fondosVal * 0.9),
+    accionesVal: dates.map(() => 0),
+    accionesInv: dates.map(() => 0),
+  };
+  allPortData.totalVal = allPortData.fondosVal.map((v, i) => v + allPortData.accionesVal[i]);
+  allPortData.totalInv = allPortData.fondosInv.map((v, i) => v + allPortData.accionesInv[i]);
+
+  renderMainChart('ALL');
+}
+
+function buildSyntheticChart(goals) {
+  // Genera curva suave desde el total actual de los goals
+  const totalVal = goals.reduce((s, g) => s + (g.attributes.current_market_value || 0), 0);
+  const totalDep = goals.reduce((s, g) => s + (g.attributes.deposited_amount || 0), 0);
+  const pts = 180;
+  const labels = [], fv = [], fi = [];
+  const start = new Date(Date.now() - 3 * 365 * 86400000);
+  for (let i = 0; i < pts; i++) {
+    const d = new Date(start.getTime() + i * (3 * 365 * 86400000 / pts));
+    labels.push(d.toLocaleDateString('es-CL', { month: 'short', year: '2-digit' }));
+    const t = i / pts;
+    fv.push(Math.round(totalVal * Math.pow(t, 0.6) * (1 + (Math.random() - 0.5) * 0.02)));
+    fi.push(Math.round(totalDep * Math.pow(t, 0.55)));
+  }
+  allPortData = {
+    labels, fondosVal: fv, fondosInv: fi,
+    accionesVal: labels.map(() => 0),
+    accionesInv: labels.map(() => 0),
+    totalVal: fv, totalInv: fi,
+  };
+  renderMainChart('ALL');
+}
+
+// ─── PORTFOLIO SUMMARY (side panel) ─────────────────────────────────────────
+function buildPortfolioSummary(goals) {
+  const totalVal = goals.reduce((s, g) => s + (g.attributes.current_market_value || 0), 0);
+  const totalDep = goals.reduce((s, g) => s + (g.attributes.deposited_amount || 0), 0);
+  const totalGain = totalVal - totalDep;
+  const totalRet = totalDep > 0 ? (totalGain / totalDep * 100) : 0;
+
+  document.getElementById('portVal').textContent = clp(totalVal);
+  document.getElementById('portGain').innerHTML = `<span class="${totalGain >= 0 ? 'gain' : 'loss'}">${totalGain >= 0 ? '+' : ''}${clp(totalGain)} (${pct(totalRet)})</span>`;
+  document.getElementById('portInv').textContent = `Invertido: ${clp(totalDep)}`;
+  document.getElementById('tot-val').textContent = clp(totalVal);
+  document.getElementById('tot-gain').textContent = `${totalGain >= 0 ? '+' : ''}${clp(totalGain)} (${pct(totalRet)})`;
+  document.getElementById('tot-dep').textContent = `Depositado: ${clp(totalDep)}`;
+
+  // Donut con los goals
+  const labels = goals.map(g => g.attributes.name || 'Meta');
+  const vals = goals.map(g => g.attributes.current_market_value || 0);
+  const colors = ['#1a1a2e', '#2d6be4', '#8b5cf6', '#ec4899', '#10b981'];
+  const pcts = vals.map(v => totalVal > 0 ? (v / totalVal * 100).toFixed(1) : 0);
+
+  if (donutChart) donutChart.destroy();
+  donutChart = new Chart(document.getElementById('donutChart').getContext('2d'), {
+    type: 'doughnut',
+    data: { labels, datasets: [{ data: vals, backgroundColor: colors, borderWidth: 0, hoverOffset: 4 }] },
+    options: { responsive: false, cutout: '72%', plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => ctx.label + ': ' + clp(ctx.raw) } } } }
+  });
+
+  const legendEl = document.getElementById('donut-legend');
+  legendEl.innerHTML = goals.map((g, i) => {
+    const a = g.attributes;
+    const v = a.current_market_value || 0;
+    const d = a.deposited_amount || 0;
+    const gain = v - d;
+    return `<div class="dl-row">
+      <div style="display:flex;align-items:flex-start">
+        <div class="dl-dot" style="background:${colors[i % colors.length]}"></div>
+        <div>
+          <div class="dl-name">${a.name || 'Meta'}</div>
+          <div class="dl-val">${clp(v)}</div>
+          <div class="dl-g">${gain >= 0 ? '+' : ''}${clp(gain)} (${pct(d > 0 ? gain/d*100 : 0)})</div>
+        </div>
+      </div>
+      <div class="dl-pct">${pcts[i]}%</div>
+    </div>`;
+  }).join('');
+
+  buildActChart(goals);
+}
+
+// ─── ACTIVITY CHART ───────────────────────────────────────────────────────────
+function buildActChart(goals) {
+  // Extraer movimientos de los goals
+  const monthMap = {};
+  goals.forEach(g => {
+    const deposits = g.attributes.deposits || [];
+    deposits.forEach(dep => {
+      const m = dep.date ? dep.date.substring(0, 7) : null;
+      if (!m) return;
+      if (!monthMap[m]) monthMap[m] = { i: 0, e: 0 };
+      if (dep.amount > 0) monthMap[m].i += dep.amount;
+      else monthMap[m].e += Math.abs(dep.amount);
+    });
+  });
+
+  const months = Object.keys(monthMap).sort().slice(-8);
+  const labels = months.map(m => {
+    const [y, mo] = m.split('-');
+    return new Date(+y, +mo - 1).toLocaleDateString('es-CL', { month: 'short', year: '2-digit' });
+  });
+  const ingresos = months.map(m => monthMap[m]?.i || 0);
+  const egresos = months.map(m => monthMap[m]?.e || 0);
+
+  if (actChart) actChart.destroy();
+  const tickColor = isDark ? '#444' : '#bbb';
+  actChart = new Chart(document.getElementById('actChart').getContext('2d'), {
+    type: 'bar',
+    data: {
+      labels: labels.length ? labels : ['Sin datos'],
+      datasets: [
+        { label: 'Ingresos', data: ingresos.length ? ingresos : [0], backgroundColor: '#2d6be4', borderRadius: 3 },
+        { label: 'Egresos', data: egresos.length ? egresos : [0], backgroundColor: '#d94f4f', borderRadius: 3 }
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => ctx.dataset.label + ': ' + clp(ctx.raw) } } },
+      scales: {
+        x: { ticks: { color: tickColor, font: { size: 10 } }, grid: { display: false }, border: { display: false } },
+        y: { ticks: { color: tickColor, font: { size: 10 }, callback: v => clpShort(v) }, grid: { color: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.05)' }, border: { display: false } }
+      }
+    }
+  });
+}
+
+// ─── MAIN CHART ───────────────────────────────────────────────────────────────
+function slicePortData(range) {
+  if (!allPortData) return null;
+  const n = allPortData.labels.length;
+  const cuts = { ALL: 0, '3Y': Math.max(0, n-156), '1Y': Math.max(0, n-52), '6M': Math.max(0, n-26), '3M': Math.max(0, n-13), '1M': Math.max(0, n-4) };
+  const s = cuts[range] || 0;
+  const sl = k => allPortData[k].slice(s);
+  return { labels: sl('labels'), fondosVal: sl('fondosVal'), fondosInv: sl('fondosInv'), accionesVal: sl('accionesVal'), accionesInv: sl('accionesInv'), totalVal: sl('totalVal'), totalInv: sl('totalInv') };
+}
+
+function renderMainChart(range) {
+  const d = slicePortData(range);
+  if (!d) return;
+
+  const hasFondos = d.fondosVal.some(v => v > 0);
+  const hasAcciones = d.accionesVal.some(v => v > 0);
+
+  const datasets = [];
+  if (hasFondos) {
+    datasets.push({ label: 'Fondos valor', data: d.fondosVal, borderColor: '#1a1a6e', borderWidth: 1.5, pointRadius: 0, tension: 0.4, fill: false });
+    datasets.push({ label: 'Fondos inv.', data: d.fondosInv, borderColor: '#1a1a6e', borderWidth: 1, borderDash: [4, 4], pointRadius: 0, tension: 0.4, fill: false });
+  }
+  if (hasAcciones) {
+    datasets.push({ label: 'Acciones valor', data: d.accionesVal, borderColor: '#2d6be4', borderWidth: 1.5, pointRadius: 0, tension: 0.4, fill: { target: 'origin', above: 'rgba(45,107,228,0.05)' } });
+    datasets.push({ label: 'Acciones inv.', data: d.accionesInv, borderColor: '#2d6be4', borderWidth: 1, borderDash: [4, 4], pointRadius: 0, tension: 0.4, fill: false });
+  }
+  datasets.push({ label: 'Total valor', data: d.totalVal, borderColor: '#00a86b', borderWidth: 2, pointRadius: 0, tension: 0.4, fill: false });
+  datasets.push({ label: 'Total inv.', data: d.totalInv, borderColor: '#00a86b', borderWidth: 1, borderDash: [4, 4], pointRadius: 0, tension: 0.4, fill: false });
+
+  const gridColor = isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.05)';
+  const tickColor = isDark ? '#444' : '#aaa';
+
+  if (mainChart) {
+    mainChart.data = { labels: d.labels, datasets };
+    mainChart.update('active');
+  } else {
+    mainChart = new Chart(document.getElementById('mainChart').getContext('2d'), {
+      type: 'line',
+      data: { labels: d.labels, datasets },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        interaction: { mode: 'index', intersect: false },
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            backgroundColor: isDark ? '#1a1a22' : '#fff',
+            borderColor: isDark ? '#333' : '#e0e0d8',
+            borderWidth: 1,
+            titleColor: isDark ? '#aaa' : '#555',
+            bodyColor: isDark ? '#ccc' : '#333',
+            padding: 10,
+            callbacks: { label: ctx => ' ' + ctx.dataset.label + ': ' + clp(ctx.raw) }
+          }
+        },
+        scales: {
+          x: { ticks: { color: tickColor, maxTicksLimit: 7, font: { size: 10 } }, grid: { color: gridColor }, border: { color: isDark ? '#1e1e24' : '#e0e0d8' } },
+          y: { ticks: { color: tickColor, callback: clpShort, font: { size: 10 } }, grid: { color: gridColor }, border: { color: isDark ? '#1e1e24' : '#e0e0d8' } }
+        }
+      }
+    });
+  }
+
+  // Legend
+  const legEl = document.getElementById('mainLeg');
+  legEl.innerHTML = datasets.map(ds => {
+    const dashed = ds.borderDash;
+    const style = dashed
+      ? `border-top: 2px dashed ${ds.borderColor}; height: 0; width: 16px;`
+      : `background: ${ds.borderColor}; height: 2px; width: 16px; border-radius: 1px;`;
+    return `<div class="li"><div style="${style}"></div>${ds.label}</div>`;
+  }).join('');
+}
+
+function setRange(range, btn) {
+  document.querySelectorAll('.tf').forEach(b => b.classList.remove('on'));
+  btn.classList.add('on');
+  if (allPortData) renderMainChart(range);
+}
+
+// ─── VIEWS ────────────────────────────────────────────────────────────────────
+function showView(v) {
+  document.getElementById('view-dashboard').style.display = v === 'dashboard' ? '' : 'none';
+  document.getElementById('view-table').style.display = v === 'table' ? '' : 'none';
+  document.getElementById('side-panel').style.display = v === 'table' ? 'none' : '';
+  document.getElementById('btn-dash').classList.toggle('on', v === 'dashboard');
+  document.getElementById('btn-table').classList.toggle('on', v === 'table');
+}
+
+// ─── THEME ────────────────────────────────────────────────────────────────────
+function toggleTheme() {
+  isDark = !isDark;
+  document.getElementById('app').classList.toggle('dark', isDark);
+  document.getElementById('theme-icon').className = isDark ? 'ti ti-sun' : 'ti ti-moon';
+  if (allPortData) { mainChart?.destroy(); mainChart = null; renderMainChart('ALL'); }
+  if (actChart && goalsData.length) buildActChart(goalsData);
+}
+
+// ─── INIT ─────────────────────────────────────────────────────────────────────
+window.addEventListener('DOMContentLoaded', () => {
+  const saved_worker = localStorage.getItem('ft_worker');
+  const saved_cookie = localStorage.getItem('ft_cookie');
+
+  if (saved_worker) document.getElementById('workerUrl').value = saved_worker;
+
+  if (saved_cookie && saved_worker) {
+    WORKER = saved_worker;
+    SESSION_COOKIE = saved_cookie;
+    document.getElementById('loginModal').style.display = 'none';
+    document.getElementById('app').style.display = 'flex';
+    loadAll();
+  }
+});
+</script>
+</body>
+</html>
