@@ -832,6 +832,18 @@ window.addEventListener('DOMContentLoaded', () => {
     }
   });
 
+  // BroadcastChannel para recibir datos de fintual.cl
+  try {
+    const bc = new BroadcastChannel('rutaboard');
+    bc.onmessage = function(event) {
+      if (event.data?.type === 'fintual_data') {
+        const data = event.data;
+        localStorage.setItem('rutaboard_data', JSON.stringify({...data, ts: Date.now()}));
+        loadFromCache(data);
+      }
+    };
+  } catch(e) {}
+
   // Si ya tiene datos guardados, cargar directo
   const raw = localStorage.getItem('rutaboard_data');
   if (raw) {
