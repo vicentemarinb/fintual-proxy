@@ -13,12 +13,11 @@ export default async function handler(req) {
 
   const url = new URL(req.url);
   
-  // Reconstruir path: /api/proxy/user_token → /user_token
-  const fintualPath = url.pathname
-    .replace(/^\/api\/proxy/, "")
-    .replace(/^\/api/, "");
-
-  const fintualUrl = `https://fintual.cl/api${fintualPath || "/"}${url.search}`;
+  // Vercel rewrite nos trae la URL original en x-invoke-path o en la URL misma
+  // /api/user_token → extraer "user_token"
+  const parts = url.pathname.split("/api/");
+  const fintualPath = parts.length > 1 ? "/" + parts[parts.length - 1] : "/";
+  const fintualUrl = `https://fintual.cl/api${fintualPath}${url.search}`;
 
   try {
     const body = req.method !== "GET" ? await req.text() : undefined;
@@ -29,11 +28,10 @@ export default async function handler(req) {
       redirect: "follow",
     });
 
-    // Si Fintual redirige a HTML, significa error de auth
     const contentType = res.headers.get("content-type") || "";
     if (contentType.includes("text/html")) {
       return new Response(
-        JSON.stringify({ error: "Fintual devolvió HTML. Endpoint incorrecto o no autenticado." }),
+        JSON.stringify({ error: "auth_required", path: fintualPath, url: fintualUrl }),
         { status: 401, headers: { ...CORS, "Content-Type": "application/json" } }
       );
     }
