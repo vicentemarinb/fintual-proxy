@@ -191,29 +191,31 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
 <!-- LOGIN MODAL -->
 <div class="modal-overlay" id="loginModal">
   <div class="modal">
-    <h2>🍪 Conectar con Fintual</h2>
-    <p>Usa tu cookie de sesión de Fintual. Se guarda solo en tu navegador y nunca sale de tu computador.</p>
-
+    <h2>🔐 Conectar con Fintual</h2>
+    <p>Tus credenciales se usan solo para obtener un token y nunca salen de tu navegador.</p>
     <div class="worker-note">
-      <b>Cómo obtener la cookie:</b><br>
-      1. Entra a <b>fintual.cl</b> con tu cuenta<br>
-      2. Abre DevTools → <b>F12</b><br>
-      3. Ve a <b>Application → Cookies → https://fintual.cl</b><br>
-      4. Copia el valor de <code>_fintual_session_cookie</code>
+      <b>Proxy URL:</b> <code>https://fintual-proxy.vercel.app</code>
     </div>
-
     <div class="field">
       <label>Proxy URL</label>
-      <input type="text" id="workerUrl" placeholder="https://fintual-proxy.vercel.app" value="https://fintual-proxy.vercel.app">
+      <input type="text" id="workerUrl" value="https://fintual-proxy.vercel.app">
     </div>
     <div class="field">
-      <label>Cookie de sesión (_fintual_session_cookie)</label>
-      <input type="password" id="sessionCookie" placeholder="Pega aquí el valor de la cookie...">
+      <label>Email de Fintual</label>
+      <input type="email" id="loginEmail" placeholder="tu@email.com">
+    </div>
+    <div class="field">
+      <label>Contraseña</label>
+      <input type="password" id="loginPass" placeholder="••••••••">
+    </div>
+    <div class="field" id="field2fa" style="display:none">
+      <label>Código de verificación <span style="color:var(--text3);font-weight:400">(revisa tu email)</span></label>
+      <input type="text" id="login2fa" placeholder="123456" maxlength="10" style="letter-spacing:0.2em;font-size:16px;" oninput="this.value=this.value.replace(/\D/g,'')">
     </div>
     <button class="btn-primary" id="btnLogin" onclick="doLogin()">Conectar</button>
     <div class="err" id="loginErr"></div>
     <p style="text-align:center;margin-top:14px;font-size:10px;color:var(--text3)">
-      La cookie dura ~30 días. Después deberás renovarla.
+      Tus datos se guardan solo en este navegador.
     </p>
   </div>
 </div>
@@ -379,7 +381,8 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
 <script>
 // ─── CONFIG ───────────────────────────────────────────────────────────────────
 let WORKER = '';
-let SESSION_COOKIE = '';
+let SESSION_COOKIE = ''; // user_token
+let USER_EMAIL = '';
 let isDark = true;
 
 // ─── CHARTS ───────────────────────────────────────────────────────────────────
@@ -388,13 +391,9 @@ let allPortData = null;
 
 // ─── API HELPERS ──────────────────────────────────────────────────────────────
 async function api(path) {
-  const url = `${WORKER}/api${path}`;
-  const r = await fetch(url, {
-    headers: {
-      'Content-Type': 'application/json',
-      'X-Fintual-Cookie': `_fintual_session_cookie=${SESSION_COOKIE}`,
-    }
-  });
+  const sep = path.includes('?') ? '&' : '?';
+  const url = `${WORKER}/api${path}${sep}user_token=${SESSION_COOKIE}&user_email=${encodeURIComponent(USER_EMAIL)}`;
+  const r = await fetch(url);
   if (!r.ok) throw new Error(`API error ${r.status}`);
   return r.json();
 }
@@ -423,47 +422,60 @@ const avatarColor = (str) => {
 // ─── LOGIN ────────────────────────────────────────────────────────────────────
 async function doLogin() {
   const worker = document.getElementById('workerUrl').value.trim().replace(/\/$/, '');
-  const cookie = document.getElementById('sessionCookie').value.trim();
+  const email = document.getElementById('loginEmail').value.trim();
+  const pass = document.getElementById('loginPass').value;
+  const code2fa = document.getElementById('login2fa').value.trim();
   const errEl = document.getElementById('loginErr');
   const btnEl = document.getElementById('btnLogin');
   errEl.textContent = '';
 
-  if (!worker || !cookie) {
-    errEl.textContent = 'Completa todos los campos.'; return;
-  }
+  if (!worker || !email || !pass) { errEl.textContent = 'Completa todos los campos.'; return; }
 
   try {
-    btnEl.textContent = 'Verificando...';
-    btnEl.disabled = true;
+    btnEl.textContent = 'Conectando...'; btnEl.disabled = true;
+    const body = { user: { email, password: pass } };
+    if (code2fa) body.user.otp_attempt = code2fa;
 
-    // Probar que la cookie funciona llamando a /goals
-    const r = await fetch(`${worker}/api/goals`, {
-      headers: {
-        'X-Fintual-Cookie': `_fintual_session_cookie=${cookie}`,
-      }
+    const r = await fetch(`${worker}/api/user_token`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
     });
 
-    if (r.status === 401 || r.status === 403) {
-      throw new Error('Cookie inválida o expirada. Cópiala de nuevo desde fintual.cl');
+    const text = await r.text();
+    let data;
+    try { data = JSON.parse(text); } catch(e) { throw new Error('Respuesta inesperada del servidor'); }
+
+    console.log('Fintual:', JSON.stringify(data));
+
+    // Detectar 2FA
+    const msg = JSON.stringify(data).toLowerCase();
+    if (!data?.data?.attributes?.token && (msg.includes('otp') || msg.includes('verif') || msg.includes('code') || msg.includes('email') || r.status === 200)) {
+      if (!code2fa) {
+        document.getElementById('field2fa').style.display = '';
+        document.getElementById('login2fa').focus();
+        errEl.style.color = '#2d6be4';
+        errEl.textContent = '📧 Revisa tu email e ingresa el código de verificación.';
+        btnEl.textContent = 'Verificar'; btnEl.disabled = false;
+        return;
+      }
     }
-    if (!r.ok) throw new Error(`Error ${r.status} al conectar`);
 
-    const data = await r.json();
-    if (!data?.data) throw new Error('No se pudieron obtener tus inversiones. Verifica la cookie.');
+    const token = data?.data?.attributes?.token;
+    if (!token) throw new Error(data?.errors?.[0]?.detail || data?.error || 'No se obtuvo token. Verifica tus credenciales.');
 
-    WORKER = worker;
-    SESSION_COOKIE = cookie;
-
+    WORKER = worker; SESSION_COOKIE = token; USER_EMAIL = email;
     localStorage.setItem('ft_worker', worker);
-    localStorage.setItem('ft_cookie', cookie);
+    localStorage.setItem('ft_cookie', token);
+    localStorage.setItem('ft_email', email);
 
     document.getElementById('loginModal').style.display = 'none';
     document.getElementById('app').style.display = 'flex';
     loadAll();
-  } catch (e) {
+  } catch(e) {
     errEl.style.color = '#d94f4f';
     errEl.textContent = e.message || 'Error al conectar.';
-    btnEl.textContent = 'Conectar';
+    btnEl.textContent = code2fa ? 'Verificar' : 'Conectar';
     btnEl.disabled = false;
   }
 }
@@ -824,12 +836,14 @@ function toggleTheme() {
 window.addEventListener('DOMContentLoaded', () => {
   const saved_worker = localStorage.getItem('ft_worker');
   const saved_cookie = localStorage.getItem('ft_cookie');
+  const saved_email = localStorage.getItem('ft_email');
 
   if (saved_worker) document.getElementById('workerUrl').value = saved_worker;
 
-  if (saved_cookie && saved_worker) {
+  if (saved_cookie && saved_worker && saved_email) {
     WORKER = saved_worker;
     SESSION_COOKIE = saved_cookie;
+    USER_EMAIL = saved_email;
     document.getElementById('loginModal').style.display = 'none';
     document.getElementById('app').style.display = 'flex';
     loadAll();
