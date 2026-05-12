@@ -13,11 +13,14 @@ export default async function handler(req) {
 
   const url = new URL(req.url);
   
-  // Vercel rewrite nos trae la URL original en x-invoke-path o en la URL misma
-  // /api/user_token → extraer "user_token"
   const parts = url.pathname.split("/api/");
   const fintualPath = parts.length > 1 ? "/" + parts[parts.length - 1] : "/";
-  const fintualUrl = `https://fintual.cl/api${fintualPath}${url.search}`;
+  
+  // Quitar el param "path" que agrega el rewrite de Vercel
+  const cleanParams = new URLSearchParams(url.search);
+  cleanParams.delete("path");
+  const qs = cleanParams.toString();
+  const fintualUrl = `https://fintual.cl/api${fintualPath}${qs ? "?" + qs : ""}`;
 
   try {
     const body = req.method !== "GET" ? await req.text() : undefined;
