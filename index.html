@@ -191,32 +191,23 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
 <!-- LOGIN MODAL -->
 <div class="modal-overlay" id="loginModal">
   <div class="modal">
-    <h2>🔐 Conectar con Fintual</h2>
-    <p>Tus credenciales se usan solo para obtener un token y nunca salen de tu navegador.</p>
+    <h2>🔗 Conectar con Fintual</h2>
+    <p>Usa el bookmarklet para sincronizar tus datos desde Fintual con un click.</p>
+
     <div class="worker-note">
-      <b>Proxy URL:</b> <code>https://fintual-proxy.vercel.app</code>
+      <b>Cómo configurar (solo una vez):</b><br>
+      1. Arrastra este botón a tu barra de favoritos:<br><br>
+      <a id="bookmarklet-link" href="" style="display:inline-block;background:#2d6be4;color:#fff;padding:7px 14px;border-radius:7px;font-size:12px;font-weight:600;text-decoration:none;cursor:grab">📊 Sync Rutaboard</a><br><br>
+      2. Ve a <b>fintual.cl</b> y asegúrate de estar logueado<br>
+      3. Haz click en el bookmark <b>"Sync Rutaboard"</b><br>
+      4. Tus datos se cargarán automáticamente aquí
     </div>
-    <div class="field">
-      <label>Proxy URL</label>
-      <input type="text" id="workerUrl" value="https://fintual-proxy.vercel.app">
+
+    <div style="text-align:center;margin-top:8px">
+      <div style="font-size:11px;color:var(--text3);margin-bottom:10px">¿Ya tienes datos sincronizados?</div>
+      <button class="btn-primary" onclick="checkForData()" style="width:auto;padding:8px 20px">Verificar sincronización</button>
     </div>
-    <div class="field">
-      <label>Email de Fintual</label>
-      <input type="email" id="loginEmail" placeholder="tu@email.com">
-    </div>
-    <div class="field">
-      <label>Contraseña</label>
-      <input type="password" id="loginPass" placeholder="••••••••">
-    </div>
-    <div class="field" id="field2fa" style="display:none">
-      <label>Código de verificación <span style="color:var(--text3);font-weight:400">(revisa tu email)</span></label>
-      <input type="text" id="login2fa" placeholder="123456" maxlength="10" style="letter-spacing:0.2em;font-size:16px;" oninput="this.value=this.value.replace(/\D/g,'')">
-    </div>
-    <button class="btn-primary" id="btnLogin" onclick="doLogin()">Conectar</button>
-    <div class="err" id="loginErr"></div>
-    <p style="text-align:center;margin-top:14px;font-size:10px;color:var(--text3)">
-      Tus datos se guardan solo en este navegador.
-    </p>
+    <div class="err" id="loginErr" style="margin-top:10px"></div>
   </div>
 </div>
 
@@ -380,10 +371,55 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
 
 <script>
 // ─── CONFIG ───────────────────────────────────────────────────────────────────
-let WORKER = '';
-let SESSION_COOKIE = ''; // user_token
-let USER_EMAIL = '';
 let isDark = true;
+const APP_URL = 'https://fintual-proxy.vercel.app';
+
+// ─── BOOKMARKLET ──────────────────────────────────────────────────────────────
+function buildBookmarklet() {
+  const code = `(function(){
+    var app='${APP_URL}';
+    var reqs=[
+      fetch('/api/goals').then(r=>r.json()),
+      fetch('/api/portfolio_items').then(r=>r.json()).catch(()=>({data:[]}))
+    ];
+    Promise.all(reqs).then(function(results){
+      var payload={goals:results[0],stocks:results[1],ts:Date.now()};
+      localStorage.setItem('rutaboard_data',JSON.stringify(payload));
+      window.open(app+'?synced=1','_blank');
+      alert('✅ Datos sincronizados! Tu app se abrirá ahora.');
+    }).catch(function(e){
+      alert('❌ Error: '+e.message+'. Asegúrate de estar logueado en Fintual.');
+    });
+  })()`;
+  document.getElementById('bookmarklet-link').href = 'javascript:' + encodeURIComponent(code);
+}
+
+function checkForData() {
+  const raw = localStorage.getItem('rutaboard_data');
+  if (raw) {
+    try {
+      const data = JSON.parse(raw);
+      loadFromCache(data);
+      return;
+    } catch(e) {}
+  }
+  // Verificar si viene de sync
+  if (window.location.search.includes('synced=1')) {
+    const raw2 = localStorage.getItem('rutaboard_data');
+    if (raw2) { loadFromCache(JSON.parse(raw2)); return; }
+  }
+  document.getElementById('loginErr').textContent = 'No hay datos aún. Primero sincroniza desde fintual.cl usando el bookmarklet.';
+}
+
+function loadFromCache(data) {
+  document.getElementById('loginModal').style.display = 'none';
+  document.getElementById('app').style.display = 'flex';
+  if (data.goals) renderFunds(data.goals.data || []);
+  buildPortfolioSummary(data.goals?.data || []);
+  buildSyntheticChart(data.goals?.data || []);
+  buildActChart(data.goals?.data || []);
+  document.getElementById('funds-section').style.display = '';
+}
 
 // ─── CHARTS ───────────────────────────────────────────────────────────────────
 let mainChart = null, donutChart = null, actChart = null;
@@ -419,65 +455,15 @@ const avatarColor = (str) => {
   return colors[Math.abs(h) % colors.length];
 };
 
-// ─── LOGIN ────────────────────────────────────────────────────────────────────
-async function doLogin() {
-  const worker = document.getElementById('workerUrl').value.trim().replace(/\/$/, '');
-  const email = document.getElementById('loginEmail').value.trim();
-  const pass = document.getElementById('loginPass').value;
-  const code2fa = document.getElementById('login2fa').value.trim();
-  const errEl = document.getElementById('loginErr');
-  const btnEl = document.getElementById('btnLogin');
-  errEl.textContent = '';
+// ─── LOGIN / LOGOUT ───────────────────────────────────────────────────────────
+function doLogout() {
+  localStorage.removeItem('rutaboard_data');
+  location.reload();
+}
 
-  if (!worker || !email || !pass) { errEl.textContent = 'Completa todos los campos.'; return; }
-
-  try {
-    btnEl.textContent = 'Conectando...'; btnEl.disabled = true;
-    const body = { user: { email, password: pass } };
-    if (code2fa) body.user.otp_attempt = code2fa;
-
-    const r = await fetch(`${worker}/api/user_token`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body)
-    });
-
-    const text = await r.text();
-    let data;
-    try { data = JSON.parse(text); } catch(e) { throw new Error('Respuesta inesperada del servidor'); }
-
-    console.log('Fintual:', JSON.stringify(data));
-
-    // Detectar 2FA
-    const msg = JSON.stringify(data).toLowerCase();
-    if (!data?.data?.attributes?.token && (msg.includes('otp') || msg.includes('verif') || msg.includes('code') || msg.includes('email') || r.status === 200)) {
-      if (!code2fa) {
-        document.getElementById('field2fa').style.display = '';
-        document.getElementById('login2fa').focus();
-        errEl.style.color = '#2d6be4';
-        errEl.textContent = '📧 Revisa tu email e ingresa el código de verificación.';
-        btnEl.textContent = 'Verificar'; btnEl.disabled = false;
-        return;
-      }
-    }
-
-    const token = data?.data?.attributes?.token;
-    if (!token) throw new Error(data?.errors?.[0]?.detail || data?.error || 'No se obtuvo token. Verifica tus credenciales.');
-
-    WORKER = worker; SESSION_COOKIE = token; USER_EMAIL = email;
-    localStorage.setItem('ft_worker', worker);
-    localStorage.setItem('ft_cookie', token);
-    localStorage.setItem('ft_email', email);
-
-    document.getElementById('loginModal').style.display = 'none';
-    document.getElementById('app').style.display = 'flex';
-    loadAll();
-  } catch(e) {
-    errEl.style.color = '#d94f4f';
-    errEl.textContent = e.message || 'Error al conectar.';
-    btnEl.textContent = code2fa ? 'Verificar' : 'Conectar';
-    btnEl.disabled = false;
-  }
+function loadAll() {
+  const raw = localStorage.getItem('rutaboard_data');
+  if (raw) { loadFromCache(JSON.parse(raw)); }
 }
 
 function doLogout() {
@@ -834,19 +820,14 @@ function toggleTheme() {
 
 // ─── INIT ─────────────────────────────────────────────────────────────────────
 window.addEventListener('DOMContentLoaded', () => {
-  const saved_worker = localStorage.getItem('ft_worker');
-  const saved_cookie = localStorage.getItem('ft_cookie');
-  const saved_email = localStorage.getItem('ft_email');
-
-  if (saved_worker) document.getElementById('workerUrl').value = saved_worker;
-
-  if (saved_cookie && saved_worker && saved_email) {
-    WORKER = saved_worker;
-    SESSION_COOKIE = saved_cookie;
-    USER_EMAIL = saved_email;
-    document.getElementById('loginModal').style.display = 'none';
-    document.getElementById('app').style.display = 'flex';
-    loadAll();
+  buildBookmarklet();
+  // Si viene de sync o ya tiene datos, cargar directo
+  const raw = localStorage.getItem('rutaboard_data');
+  if (raw) {
+    try { loadFromCache(JSON.parse(raw)); return; } catch(e) {}
+  }
+  if (window.location.search.includes('synced=1')) {
+    setTimeout(checkForData, 300);
   }
 });
 </script>
